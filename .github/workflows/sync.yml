@@ -1,0 +1,65 @@
+name: Quran Data Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      download_audio:
+        description: "Download one reciter's surah MP3 files (large)"
+        required: true
+        type: boolean
+        default: false
+      reciter_id:
+        description: "Reciter ID (1-5)"
+        required: true
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "3"
+          - "4"
+          - "5"
+        default: "1"
+      download_tafsir:
+        description: "Download tafsir JSON for all 114 surahs (large)"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: quran-data-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download Quran data
+        env:
+          DOWNLOAD_AUDIO: ${{ inputs.download_audio }}
+          RECITER_ID: ${{ inputs.reciter_id }}
+          DOWNLOAD_TAFSIR: ${{ inputs.download_tafsir }}
+        run: python scripts/download.py
+
+      - name: Commit data to repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          if git diff --cached --quiet; then
+            echo "No data changes to commit."
+          else
+            git commit -m "Update Quran data"
+            git push
+          fi
